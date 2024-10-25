@@ -108,6 +108,7 @@
 #include "V3Waiver.h"
 #include "V3Width.h"
 #include "V3WidthCommit.h"
+#include "V3AddHook.h"
 
 #include <ctime>
 
@@ -146,6 +147,10 @@ static void process() {
             cout << "--debug-exit-parse: Exiting after parse\n";
             std::exit(0);
         }
+
+        // v3Global.rootp()->dumpTreeJsonFile("ast1.json");
+        V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
+        // v3Global.rootp()->dumpTreeJsonFile("ast2.json");
 
         // Convert parseref's to varrefs, and other directly post parsing fixups
         V3LinkParse::linkParse(v3Global.rootp());
@@ -300,6 +305,10 @@ static void process() {
             }
         }
 
+        // v3Global.rootp()->dumpTreeJsonFile("ast3.json");
+        V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
+        // v3Global.rootp()->dumpTreeJsonFile("ast4.json");
+
         if (v3Global.opt.trace()) V3Interface::interfaceAll(v3Global.rootp());
 
         if (v3Global.opt.fDfgPostInline()) {
@@ -337,8 +346,6 @@ static void process() {
             // Relocate classes (after linkDot)
             V3Class::classAll(v3Global.rootp());
         }
-
-        v3Global.rootp()->dumpTreeJsonFile("ast.json");
 
         // --SCOPE BASED OPTIMIZATIONS--------------
 
