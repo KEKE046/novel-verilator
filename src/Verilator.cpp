@@ -14,6 +14,7 @@
 //
 //*************************************************************************
 
+#include <fstream>
 #define VL_MT_CONTROL_CODE_UNIT 1
 
 #include "V3Active.h"
@@ -336,6 +337,8 @@ static void process() {
             // Relocate classes (after linkDot)
             V3Class::classAll(v3Global.rootp());
         }
+
+        v3Global.rootp()->dumpTreeJsonFile("ast.json");
 
         // --SCOPE BASED OPTIMIZATIONS--------------
 

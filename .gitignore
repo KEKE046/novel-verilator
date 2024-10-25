@@ -50,3 +50,4 @@ xrun.history
 
 # Normal CMake build directory
 /build
+.cache
