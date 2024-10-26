@@ -19,6 +19,7 @@
 
 #include "V3Active.h"
 #include "V3ActiveTop.h"
+#include "V3AddHook.h"
 #include "V3Assert.h"
 #include "V3AssertPre.h"
 #include "V3Ast.h"
@@ -106,7 +107,6 @@
 #include "V3Waiver.h"
 #include "V3Width.h"
 #include "V3WidthCommit.h"
-#include "V3AddHook.h"
 
 #include <ctime>
 
