@@ -164,6 +164,7 @@ RAW_OBJS = \
 	V3Const__gen.o \
 	V3Error.o \
 	V3FileLine.o \
+	V3AddHook.o \
 	V3Graph.o \
 	V3GraphAcyc.o \
 	V3GraphAlg.o \

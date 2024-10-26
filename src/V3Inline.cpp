@@ -28,8 +28,10 @@
 
 #include "V3Inline.h"
 
+#include "V3Ast.h"
 #include "V3AstUserAllocator.h"
 #include "V3Inst.h"
+#include "V3Number.h"
 #include "V3Stats.h"
 
 #include <unordered_set>
@@ -268,6 +270,16 @@ class InlineRelinkVisitor final : public VNVisitor {
         // Cell under the inline cell, need to rename to avoid conflicts
         nodep->name(m_cellp->name() + "__DOT__" + nodep->name());
         iterateChildren(nodep);
+    }
+    void visit(AstTaskRef * nodep) override {
+        if (nodep->name() == "submit_cov_s") {
+            auto * argp = static_cast<AstArg*>(nodep->pinsp()->nextp()->nextp());
+            auto * namep = static_cast<AstConst*>(argp->exprp());
+            auto name = namep->num().toString();
+            auto new_name = m_cellp->name() + "." + name;
+            namep->num() = V3Number(V3Number::String(), namep, new_name);
+        }
+        VNVisitor::visit(nodep);
     }
     void visit(AstClass* nodep) override {
         nodep->name(m_cellp->name() + "__DOT__" + nodep->name());

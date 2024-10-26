@@ -14,6 +14,7 @@
 //
 //*************************************************************************
 
+#include <fstream>
 #define VL_MT_CONTROL_CODE_UNIT 1
 
 #include "V3Active.h"
@@ -105,6 +106,7 @@
 #include "V3Waiver.h"
 #include "V3Width.h"
 #include "V3WidthCommit.h"
+#include "V3AddHook.h"
 
 #include <ctime>
 
@@ -142,6 +144,10 @@ static void process() {
             cout << "--debug-exit-parse: Exiting after parse\n";
             std::exit(0);
         }
+
+        // v3Global.rootp()->dumpTreeJsonFile("ast1.json");
+        V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
+        // v3Global.rootp()->dumpTreeJsonFile("ast2.json");
 
         // Convert parseref's to varrefs, and other directly post parsing fixups
         V3LinkParse::linkParse(v3Global.rootp());
@@ -291,6 +297,10 @@ static void process() {
                 V3LinkDot::linkDotArrayed(v3Global.rootp());  // Cleanup as made new modules
             }
         }
+
+        // v3Global.rootp()->dumpTreeJsonFile("ast3.json");
+        V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
+        // v3Global.rootp()->dumpTreeJsonFile("ast4.json");
 
         if (v3Global.opt.trace()) V3Interface::interfaceAll(v3Global.rootp());
 
