@@ -60,6 +60,7 @@ struct CVPTInfo {
     // -1 means top level
     ssize_t parent_index;
     std::string parent_module;
+    std::string type;
 };
 
 class MatchVisitor final : public VNVisitor {
@@ -71,8 +72,8 @@ class MatchVisitor final : public VNVisitor {
     inline AstNodeStmt * current_stmt() {
         return stmt_stack.top();
     }
-    AstNode * createCoveragePointStmt(FileLine * flp, AstNodeExpr * condp, ssize_t & index) {
-        index = m_cvpt_info.size();
+    AstNode * createCoveragePointStmt(FileLine * flp, AstNodeExpr * condp, ssize_t & index, std::string type) {
+        index = static_cast<ssize_t>(m_cvpt_info.size());
         ssize_t parent_index = -1;
         std::string parent_module;
         if(m_parent_index.size() > 0) {
@@ -80,7 +81,7 @@ class MatchVisitor final : public VNVisitor {
         } else {
             parent_index = -1;
         }
-        m_cvpt_info.push_back({parent_index, m_current_module});
+        m_cvpt_info.push_back({parent_index, m_current_module, std::move(type)});
         AstArg * const arg1 = new AstArg(flp, "", new AstConst(flp, index));
         AstArg * const arg2 = new AstArg(flp, "", condp->cloneTree(false));
         arg1->addNext(arg2);
@@ -99,7 +100,7 @@ class MatchVisitor final : public VNVisitor {
         stmt_stack.push(nodep);
         // std::cout << "Set user1p " << std::endl;
         ssize_t index = 0;
-        current_stmt()->user1p(createCoveragePointStmt(nodep->fileline(), nodep->condp(), index));
+        current_stmt()->user1p(createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
         m_parent_index.push(index);
         iterateChildren(nodep);
         m_parent_index.pop();
@@ -112,7 +113,7 @@ class MatchVisitor final : public VNVisitor {
     }
     void visit(AstNodeCond * nodep) override {
         ssize_t index = 0;
-        auto * new_stmt = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index);
+        auto * new_stmt = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
         if(current_stmt()->user1p()) {
             current_stmt()->dump();
             current_stmt()->user1p()->addNextHere(new_stmt);
@@ -132,7 +133,7 @@ public:
     void dump_csv(std::ostream & out) {
         size_t index = 0;
         for(auto & info: m_cvpt_info) {
-            out << index << "\t" << info.parent_index << "\t" << info.parent_module << "\n"; 
+            out << index << "\t" << info.parent_index << "\t" << info.parent_module << "\t" << info.type << "\n"; 
             index++;
         }
     }
