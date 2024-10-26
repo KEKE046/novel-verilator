@@ -1,15 +1,15 @@
 #include "V3PchAstNoMT.h"
 
-#include "V3Ast.h"
-#include "V3FileLine.h"
-#include "V3Inst.h"
-
 #include "V3AddHook.h"
 
+#include "V3Ast.h"
 #include "V3Const.h"
+#include "V3FileLine.h"
+#include "V3Inst.h"
 #include "V3Task.h"
-#include <stack>
+
 #include <fstream>
+#include <stack>
 VL_DEFINE_DEBUG_FUNCTIONS;
 
 namespace {
@@ -17,10 +17,11 @@ namespace {
 // struct AddTaskVisitor final : public VNVisitor {
 //     bool found = false;
 //     static AstTask * creatTask(FileLine * flp) {
-//         AstVar * const arg1 = new AstVar(flp, VVarType::PORT, "id", VFlagChildDType(), new AstBasicDType(flp, VBasicDTypeKwd::INT));
-//         AstVar * const arg2 = new AstVar(flp, VVarType::PORT, "value", VFlagChildDType(), new AstBasicDType(flp, VBasicDTypeKwd::BIT));
-//         AstVar * const arg3 = new AstVar(flp, VVarType::PORT, "name", VFlagChildDType(), new AstBasicDType(flp, VBasicDTypeKwd::STRING));
-//         arg1->addNext(arg2);
+//         AstVar * const arg1 = new AstVar(flp, VVarType::PORT, "id", VFlagChildDType(), new
+//         AstBasicDType(flp, VBasicDTypeKwd::INT)); AstVar * const arg2 = new AstVar(flp,
+//         VVarType::PORT, "value", VFlagChildDType(), new AstBasicDType(flp,
+//         VBasicDTypeKwd::BIT)); AstVar * const arg3 = new AstVar(flp, VVarType::PORT, "name",
+//         VFlagChildDType(), new AstBasicDType(flp, VBasicDTypeKwd::STRING)); arg1->addNext(arg2);
 //         arg1->addNext(arg3);
 //         arg1->direction(VDirection::INPUT);
 //         arg2->direction(VDirection::INPUT);
@@ -69,54 +70,57 @@ class MatchVisitor final : public VNVisitor {
     std::string m_current_module;
     std::stack<ssize_t> m_parent_index;
     std::stack<AstNodeStmt*> stmt_stack;
-    inline AstNodeStmt * current_stmt() {
-        if(stmt_stack.empty()) return nullptr;
+    inline AstNodeStmt* current_stmt() {
+        if (stmt_stack.empty()) return nullptr;
         return stmt_stack.top();
     }
-    AstNode * createCoveragePointStmt(FileLine * flp, AstNodeExpr * condp, ssize_t & index, std::string type) {
+    AstNode* createCoveragePointStmt(FileLine* flp, AstNodeExpr* condp, ssize_t& index,
+                                     std::string type) {
         index = static_cast<ssize_t>(m_cvpt_info.size());
         ssize_t parent_index = -1;
         std::string parent_module;
-        if(m_parent_index.size() > 0) {
+        if (m_parent_index.size() > 0) {
             parent_index = m_parent_index.top();
         } else {
             parent_index = -1;
         }
         m_cvpt_info.push_back({parent_index, m_current_module, std::move(type)});
-        AstArg * const arg1 = new AstArg(flp, "", new AstConst(flp, index));
-        AstArg * const arg2 = new AstArg(flp, "", condp->cloneTree(false));
+        AstArg* const arg1 = new AstArg(flp, "", new AstConst(flp, index));
+        AstArg* const arg2 = new AstArg(flp, "", condp->cloneTree(false));
         arg1->addNext(arg2);
-        AstArg * const arg3 = new AstArg(flp, "", new AstConst(flp, AstConst::String(), "cov"));
+        AstArg* const arg3 = new AstArg(flp, "", new AstConst(flp, AstConst::String(), "cov"));
         arg1->addNext(arg3);
-        AstTaskRef * const new_node = new AstTaskRef(flp, "submit_cov_s", arg1);
-        AstStmtExpr * const new_stmt = new AstStmtExpr(flp, new_node);
+        AstTaskRef* const new_node = new AstTaskRef(flp, "submit_cov_s", arg1);
+        AstStmtExpr* const new_stmt = new AstStmtExpr(flp, new_node);
         return new_stmt;
     }
-    void visit(AstNodeStmt * nodep) override {
+    void visit(AstNodeStmt* nodep) override {
         stmt_stack.push(nodep);
         iterateChildren(nodep);
         stmt_stack.pop();
     }
-    void visit(AstIf * nodep) override {
+    void visit(AstIf* nodep) override {
         stmt_stack.push(nodep);
         // std::cout << "Set user1p " << std::endl;
         ssize_t index = 0;
-        current_stmt()->user1p(createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
+        current_stmt()->user1p(
+            createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
         m_parent_index.push(index);
         iterateChildren(nodep);
         m_parent_index.pop();
         stmt_stack.pop();
     }
-    void visit(AstNodeModule * nodep) override {
+    void visit(AstNodeModule* nodep) override {
         m_current_module = nodep->name();
         iterateChildren(nodep);
         m_current_module = "";
     }
-    void visit(AstNodeCond * nodep) override {
+    void visit(AstNodeCond* nodep) override {
         ssize_t index = 0;
-        if(current_stmt()) {
-            auto * new_stmt = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
-            if(current_stmt()->user1p()) {
+        if (current_stmt()) {
+            auto* new_stmt
+                = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
+            if (current_stmt()->user1p()) {
                 current_stmt()->user1p()->addNextHere(new_stmt);
             } else {
                 current_stmt()->user1p(new_stmt);
@@ -126,16 +130,16 @@ class MatchVisitor final : public VNVisitor {
         iterateChildren(nodep);
         m_parent_index.pop();
     }
-    void visit(AstNode * nodep) override {
-        iterateChildren(nodep);
-    }
+    void visit(AstNode* nodep) override { iterateChildren(nodep); }
+
 public:
     explicit MatchVisitor(AstNetlist* nodep) { iterate(nodep); }
     ~MatchVisitor() override = default;
-    void dump_csv(std::ostream & out) {
+    void dump_csv(std::ostream& out) {
         size_t index = 0;
-        for(auto & info: m_cvpt_info) {
-            out << index << "\t" << info.parent_index << "\t" << info.parent_module << "\t" << info.type << "\n"; 
+        for (auto& info : m_cvpt_info) {
+            out << index << "\t" << info.parent_index << "\t" << info.parent_module << "\t"
+                << info.type << "\n";
             index++;
         }
     }
@@ -143,46 +147,50 @@ public:
 
 class RewriteVisitor final : public VNVisitor {
     bool inside_proc = false;
-    void visit(AstAlways * nodep) override {
+    void visit(AstAlways* nodep) override {
         inside_proc = true;
         iterateChildren(nodep);
         inside_proc = false;
     }
-    void visit(AstInitial * nodep) override {
+    void visit(AstInitial* nodep) override {
         inside_proc = true;
         iterateChildren(nodep);
         inside_proc = false;
     }
-    void visit(AstNode * nodep) override {
-        // std::cout << "RewriteVisitor: " << nodep->type() << " " << nodep->name() << " user1p=" << nodep->user1p() << std::endl;
-        if(nodep->user1p()) {
-            auto * target = nodep->user1p();
+    void visit(AstNode* nodep) override {
+        // std::cout << "RewriteVisitor: " << nodep->type() << " " << nodep->name() << " user1p="
+        // << nodep->user1p() << std::endl;
+        if (nodep->user1p()) {
+            auto* target = nodep->user1p();
             nodep->user1p(nullptr);
-            if(!inside_proc) {
-                target = new AstAlways(target->fileline(), VAlwaysKwd::ALWAYS_COMB, nullptr, new AstBegin(target->fileline(), "", target));
+            if (!inside_proc) {
+                target = new AstAlways(target->fileline(), VAlwaysKwd::ALWAYS_COMB, nullptr,
+                                       new AstBegin(target->fileline(), "", target));
             }
             nodep->addNextHere(target);
         }
         iterateChildren(nodep);
     }
+
 public:
     explicit RewriteVisitor(AstNetlist* nodep) { iterate(nodep); }
     ~RewriteVisitor() override = default;
 };
 
 struct CovPointInfo {
-    FileLine * flp;
+    FileLine* flp;
     std::string inst_path;
     size_t original_index;
 };
 
-class RenumberHookVisitor final: public VNVisitor {
+class RenumberHookVisitor final : public VNVisitor {
     std::vector<CovPointInfo> m_cov_points;
 
-    void visit(AstTaskRef * nodep) override {
-        if(nodep->name() == "submit_cov_s") {
-            auto * indexp = static_cast<AstConst*>(static_cast<AstArg*>(nodep->pinsp())->exprp());
-            auto * namep = static_cast<AstConst*>(static_cast<AstArg*>(nodep->pinsp()->nextp()->nextp())->exprp());
+    void visit(AstTaskRef* nodep) override {
+        if (nodep->name() == "submit_cov_s") {
+            auto* indexp = static_cast<AstConst*>(static_cast<AstArg*>(nodep->pinsp())->exprp());
+            auto* namep = static_cast<AstConst*>(
+                static_cast<AstArg*>(nodep->pinsp()->nextp()->nextp())->exprp());
             auto name = namep->num().toString();
             auto index = m_cov_points.size();
             auto original_index = indexp->num().toUInt();
@@ -191,38 +199,38 @@ class RenumberHookVisitor final: public VNVisitor {
         }
     }
 
-    void visit(AstNode * nodep) override {
-        iterateChildren(nodep);
-    }
+    void visit(AstNode* nodep) override { iterateChildren(nodep); }
+
 public:
     explicit RenumberHookVisitor(AstNetlist* nodep) { iterate(nodep); }
     ~RenumberHookVisitor() override = default;
-    void dump_csv(std::ostream & out) {
+    void dump_csv(std::ostream& out) {
         ssize_t i = 0;
-        for(auto & info: m_cov_points) {
-            out << i << "\t" << info.flp->filename() << ":" << info.flp->firstLineno() << ":" << info.flp->firstColumn() << "\t";
+        for (auto& info : m_cov_points) {
+            out << i << "\t" << info.flp->filename() << ":" << info.flp->firstLineno() << ":"
+                << info.flp->firstColumn() << "\t";
             out << info.inst_path << "\t" << info.original_index << "\n";
             i++;
         }
     }
 };
 
-} // namespace
+}  // namespace
 
-void V3AddHook::addHook(AstNetlist* nodep, const std::string & dump_path) {
+void V3AddHook::addHook(AstNetlist* nodep, const std::string& dump_path) {
     UINFO(2, __FUNCTION__ << ": " << endl);
     // AddTaskVisitor addtask{nodep};
-    MatchVisitor match {nodep};
-    RewriteVisitor rewrite {nodep};
+    MatchVisitor match{nodep};
+    RewriteVisitor rewrite{nodep};
     std::ofstream out(dump_path);
     match.dump_csv(out);
     out.close();
     // V3Global::dumpCheckGlobalTree("addHook", 0, dumpTreeEitherLevel() >= 3);
 }
 
-void V3AddHook::renumberHook(AstNetlist* nodep, const std::string & dump_path) {
+void V3AddHook::renumberHook(AstNetlist* nodep, const std::string& dump_path) {
     UINFO(2, __FUNCTION__ << ": " << endl);
-    RenumberHookVisitor renumber {nodep};
+    RenumberHookVisitor renumber{nodep};
     std::ofstream out(dump_path);
     renumber.dump_csv(out);
     out.close();

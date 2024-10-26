@@ -8,8 +8,8 @@
 
 class V3AddHook final {
 public:
-    static void addHook(AstNetlist* nodep, const std::string & dump_path);
-    static void renumberHook(AstNetlist* nodep, const std::string & dump_path);
+    static void addHook(AstNetlist* nodep, const std::string& dump_path);
+    static void renumberHook(AstNetlist* nodep, const std::string& dump_path);
 };
 
 #endif

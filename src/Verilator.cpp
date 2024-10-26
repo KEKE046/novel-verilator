@@ -20,6 +20,7 @@
 
 #include "V3Active.h"
 #include "V3ActiveTop.h"
+#include "V3AddHook.h"
 #include "V3Assert.h"
 #include "V3AssertPre.h"
 #include "V3Ast.h"
@@ -109,7 +110,6 @@
 #include "V3Waiver.h"
 #include "V3Width.h"
 #include "V3WidthCommit.h"
-#include "V3AddHook.h"
 
 #include <ctime>
 
@@ -137,16 +137,14 @@ static void emitXmlOrJson() VL_MT_DISABLED {
     if (v3Global.opt.jsonOnly()) emitJson();
 }
 
-static int get_arg(char * arg) {
-    auto * env = getenv(arg);
-    if(!env) return 0;
+static int get_arg(char* arg) {
+    auto* env = getenv(arg);
+    if (!env) return 0;
     auto value = std::string(env);
-    if(value.empty()) return 0;
+    if (value.empty()) return 0;
     try {
         return std::stoi(value);
-    } catch(std::invalid_argument &e) {
-        return -1;
-    }
+    } catch (std::invalid_argument& e) { return -1; }
 }
 
 static void process() {
@@ -161,9 +159,9 @@ static void process() {
             std::exit(0);
         }
 
-        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast1.json");
-        if(!get_arg("NO_ADD_HOOK")) V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
-        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast2.json");
+        if (get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast1.json");
+        if (!get_arg("NO_ADD_HOOK")) V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
+        if (get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast2.json");
 
         // Convert parseref's to varrefs, and other directly post parsing fixups
         V3LinkParse::linkParse(v3Global.rootp());
@@ -318,9 +316,9 @@ static void process() {
             }
         }
 
-        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast3.json");
-        if(!get_arg("NO_ADD_HOOK")) V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
-        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast4.json");
+        if (get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast3.json");
+        if (!get_arg("NO_ADD_HOOK")) V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
+        if (get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast4.json");
 
         if (v3Global.opt.trace()) V3Interface::interfaceAll(v3Global.rootp());
 
