@@ -15,6 +15,7 @@
 //*************************************************************************
 
 #include <fstream>
+#include <stdexcept>
 #define VL_MT_CONTROL_CODE_UNIT 1
 
 #include "V3Active.h"
@@ -136,6 +137,18 @@ static void emitXmlOrJson() VL_MT_DISABLED {
     if (v3Global.opt.jsonOnly()) emitJson();
 }
 
+static int get_arg(char * arg) {
+    auto * env = getenv(arg);
+    if(!env) return 0;
+    auto value = std::string(env);
+    if(value.empty()) return 0;
+    try {
+        return std::stoi(value);
+    } catch(std::invalid_argument &e) {
+        return -1;
+    }
+}
+
 static void process() {
     {
         VlOs::DeltaWallTime elabWallTime{true};
@@ -148,9 +161,9 @@ static void process() {
             std::exit(0);
         }
 
-        // v3Global.rootp()->dumpTreeJsonFile("ast1.json");
-        V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
-        // v3Global.rootp()->dumpTreeJsonFile("ast2.json");
+        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast1.json");
+        if(!get_arg("NO_ADD_HOOK")) V3AddHook::addHook(v3Global.rootp(), "cov.origin.csv");
+        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast2.json");
 
         // Convert parseref's to varrefs, and other directly post parsing fixups
         V3LinkParse::linkParse(v3Global.rootp());
@@ -305,9 +318,9 @@ static void process() {
             }
         }
 
-        // v3Global.rootp()->dumpTreeJsonFile("ast3.json");
-        V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
-        // v3Global.rootp()->dumpTreeJsonFile("ast4.json");
+        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast3.json");
+        if(!get_arg("NO_ADD_HOOK")) V3AddHook::renumberHook(v3Global.rootp(), "cov.renumber.csv");
+        if(get_arg("DUMP_AST")) v3Global.rootp()->dumpTreeJsonFile("ast4.json");
 
         if (v3Global.opt.trace()) V3Interface::interfaceAll(v3Global.rootp());
 

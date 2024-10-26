@@ -142,18 +142,23 @@ public:
 };
 
 class RewriteVisitor final : public VNVisitor {
-    bool inside_always = false;
+    bool inside_proc = false;
     void visit(AstAlways * nodep) override {
-        inside_always = true;
+        inside_proc = true;
         iterateChildren(nodep);
-        inside_always = false;
+        inside_proc = false;
+    }
+    void visit(AstInitial * nodep) override {
+        inside_proc = true;
+        iterateChildren(nodep);
+        inside_proc = false;
     }
     void visit(AstNode * nodep) override {
         // std::cout << "RewriteVisitor: " << nodep->type() << " " << nodep->name() << " user1p=" << nodep->user1p() << std::endl;
         if(nodep->user1p()) {
             auto * target = nodep->user1p();
             nodep->user1p(nullptr);
-            if(!inside_always) {
+            if(!inside_proc) {
                 target = new AstAlways(target->fileline(), VAlwaysKwd::ALWAYS_COMB, nullptr, new AstBegin(target->fileline(), "", target));
             }
             nodep->addNextHere(target);
