@@ -70,6 +70,7 @@ class MatchVisitor final : public VNVisitor {
     std::stack<ssize_t> m_parent_index;
     std::stack<AstNodeStmt*> stmt_stack;
     inline AstNodeStmt * current_stmt() {
+        if(stmt_stack.empty()) return nullptr;
         return stmt_stack.top();
     }
     AstNode * createCoveragePointStmt(FileLine * flp, AstNodeExpr * condp, ssize_t & index, std::string type) {
@@ -113,12 +114,13 @@ class MatchVisitor final : public VNVisitor {
     }
     void visit(AstNodeCond * nodep) override {
         ssize_t index = 0;
-        auto * new_stmt = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
-        if(current_stmt()->user1p()) {
-            current_stmt()->dump();
-            current_stmt()->user1p()->addNextHere(new_stmt);
-        } else {
-            current_stmt()->user1p(new_stmt);
+        if(current_stmt()) {
+            auto * new_stmt = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
+            if(current_stmt()->user1p()) {
+                current_stmt()->user1p()->addNextHere(new_stmt);
+            } else {
+                current_stmt()->user1p(new_stmt);
+            }
         }
         m_parent_index.push(index);
         iterateChildren(nodep);
