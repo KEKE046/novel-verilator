@@ -14,6 +14,7 @@
 //
 //*************************************************************************
 
+#include "V3Options.h"
 #include <fstream>
 #include <stdexcept>
 #define VL_MT_CONTROL_CODE_UNIT 1
@@ -137,8 +138,8 @@ static void emitXmlOrJson() VL_MT_DISABLED {
     if (v3Global.opt.jsonOnly()) emitJson();
 }
 
-static int get_arg(char* arg) {
-    auto* env = getenv(arg);
+static int get_arg(const std::string & arg) {
+    auto* env = getenv(arg.c_str());
     if (!env) return 0;
     auto value = std::string(env);
     if (value.empty()) return 0;
@@ -850,6 +851,10 @@ int main(int argc, char** argv) {
     // Command option parsing
     v3Global.opt.buildDepBin(V3Os::filenameCleanup(argv[0]));
     v3Global.opt.parseOpts(new FileLine{FileLine::commandLineFilename()}, argc - 1, argv + 1);
+    
+    if(!get_arg("NO_DEFAULT_DUMPER")) {
+        v3Global.opt.addCppFile(V3Os::filenameJoin(V3Options::getenvVERILATOR_ROOT(), "include", "cvpt.cpp"));
+    }
 
     // Validate settings (aka Boost.Program_options)
     v3Global.opt.notify();
