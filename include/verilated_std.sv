@@ -199,3 +199,4 @@ package std;
       randomize = 0;
    endfunction
 endpackage
+import "DPI-C" function void submit_cov_s(input int point, input bit value, input string name);
