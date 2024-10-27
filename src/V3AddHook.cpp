@@ -64,6 +64,15 @@ struct CVPTInfo {
     std::string type;
 };
 
+static int get_arg(const std::string & arg) {
+    auto* env = getenv(arg.c_str());
+    if (!env) return 0;
+    auto value = std::string(env);
+    if (value.empty()) return 0;
+    try {
+        return std::stoi(value);
+    } catch (std::invalid_argument& e) { return -1; }
+}
 class MatchVisitor final : public VNVisitor {
     const VNUser1InUse m_inuser1;
     std::vector<CVPTInfo> m_cvpt_info;
@@ -103,11 +112,15 @@ class MatchVisitor final : public VNVisitor {
         stmt_stack.push(nodep);
         // std::cout << "Set user1p " << std::endl;
         ssize_t index = 0;
-        current_stmt()->user1p(
-            createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
-        m_parent_index.push(index);
+        if(!get_arg("NO_HOOK_IF")) {
+            current_stmt()->user1p(
+                createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
+            m_parent_index.push(index);
+        }
         iterateChildren(nodep);
-        m_parent_index.pop();
+        if(!get_arg("NO_HOOK_IF")) {
+            m_parent_index.pop();
+        }
         stmt_stack.pop();
     }
     void visit(AstNodeModule* nodep) override {
@@ -117,18 +130,22 @@ class MatchVisitor final : public VNVisitor {
     }
     void visit(AstNodeCond* nodep) override {
         ssize_t index = 0;
-        if (current_stmt()) {
-            auto* new_stmt
-                = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
-            if (current_stmt()->user1p()) {
-                current_stmt()->user1p()->addNextHere(new_stmt);
-            } else {
-                current_stmt()->user1p(new_stmt);
+        if(!get_arg("NO_HOOK_COND")) {
+            if (current_stmt()) {
+                auto* new_stmt
+                    = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
+                if (current_stmt()->user1p()) {
+                    current_stmt()->user1p()->addNextHere(new_stmt);
+                } else {
+                    current_stmt()->user1p(new_stmt);
+                }
             }
+            m_parent_index.push(index);
         }
-        m_parent_index.push(index);
         iterateChildren(nodep);
-        m_parent_index.pop();
+        if(!get_arg("NO_HOOK_COND")) {
+            m_parent_index.pop();
+        }
     }
     void visit(AstNode* nodep) override { iterateChildren(nodep); }
 
