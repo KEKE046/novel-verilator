@@ -1,4 +1,5 @@
 #include "verilated.h"
+
 #include <iomanip>
 #include <iostream>
 
@@ -10,10 +11,10 @@ struct CovInfo {
 };
 
 struct FileDumper {
-    FILE * fp_time;
-    FILE * fp_indptr;
-    FILE * fp_indices;
-    FILE * fp_data;
+    FILE* fp_time;
+    FILE* fp_indptr;
+    FILE* fp_indices;
+    FILE* fp_data;
     FileDumper(std::string prefix) {
         fp_time = fopen((prefix + ".time.bin").c_str(), "wb");
         fp_indptr = fopen((prefix + ".indptr.bin").c_str(), "wb");
@@ -21,9 +22,7 @@ struct FileDumper {
         fp_data = fopen((prefix + ".data.bin").c_str(), "wb");
     }
     ~FileDumper() {
-        if(current_time != last_time) {
-            sweep_active();
-        }
+        if (current_time != last_time) { sweep_active(); }
         sweep_last();
         fclose(fp_time);
         fclose(fp_indptr);
@@ -39,9 +38,11 @@ struct FileDumper {
     uint32_t log_counter = 0;
     uint64_t time_counter = 0;
     void sweep_active() {
-        if(log_counter++ >= 1000) {
-            std::cerr << "DUMPER: " << time_counter << " time=" << current_time << " rate=" << std::fixed << std::setprecision(2) << 1.0 * current_index / time_counter << std::endl;
-            log_counter = 0; 
+        if (log_counter++ >= 1000) {
+            std::cerr << "DUMPER: " << time_counter << " time=" << current_time
+                      << " rate=" << std::fixed << std::setprecision(2)
+                      << 1.0 * current_index / time_counter << std::endl;
+            log_counter = 0;
         }
         time_counter++;
         // std::cout << "sweep active: " << current_time << std::endl;
@@ -77,10 +78,10 @@ struct FileDumper {
 };
 
 struct InMemDumper {
-    FILE * fp_time;
-    FILE * fp_indptr;
-    FILE * fp_indices;
-    FILE * fp_data;
+    FILE* fp_time;
+    FILE* fp_indptr;
+    FILE* fp_indices;
+    FILE* fp_data;
     InMemDumper(std::string prefix) {
         fp_time = fopen((prefix + ".time.bin").c_str(), "wb");
         fp_indptr = fopen((prefix + ".indptr.bin").c_str(), "wb");
@@ -88,11 +89,10 @@ struct InMemDumper {
         fp_data = fopen((prefix + ".data.bin").c_str(), "wb");
     }
     ~InMemDumper() {
-        if(current_time != last_time) {
-            sweep_active();
-        }
+        if (current_time != last_time) { sweep_active(); }
         sweep_last();
-        std::cerr << "DUMP: times=" << times.size() << " indptr=" << indptr.size() << " indices=" << indices.size() << " data=" << data.size() << std::endl;
+        std::cerr << "DUMP: times=" << times.size() << " indptr=" << indptr.size()
+                  << " indices=" << indices.size() << " data=" << data.size() << std::endl;
         fwrite(times.data(), sizeof(*times.data()), times.size(), fp_time);
         fwrite(indptr.data(), sizeof(*indptr.data()), indptr.size(), fp_indptr);
         fwrite(indices.data(), sizeof(*indices.data()), indices.size(), fp_indices);
@@ -113,14 +113,16 @@ struct InMemDumper {
     std::vector<uint8_t> data;
     uint32_t log_counter = 0;
     void sweep_active() {
-        if(log_counter++ >= 1000) {
-            std::cerr << "DUMPER: cycle=" << times.size() << " time=" << current_time << " rate=" << std::fixed << std::setprecision(2) << 1.0 * data.size() / times.size() << std::endl;
-            log_counter = 0; 
+        if (log_counter++ >= 1000) {
+            std::cerr << "DUMPER: cycle=" << times.size() << " time=" << current_time
+                      << " rate=" << std::fixed << std::setprecision(2)
+                      << 1.0 * data.size() / times.size() << std::endl;
+            log_counter = 0;
         }
         times.push_back(current_time);
         indptr.push_back(indices.size());
         std::sort(active_id.begin(), active_id.end());
-        for(auto id: active_id) {
+        for (auto id : active_id) {
             current_value[id].active = false;
             uint8_t value = current_value[id].value;
             indices.push_back(id);
@@ -128,21 +130,15 @@ struct InMemDumper {
         }
         active_id.clear();
     }
-    void sweep_last() {
-        indptr.push_back(indices.size());
-    }
+    void sweep_last() { indptr.push_back(indices.size()); }
     void submit(uint64_t time, int64_t id, uint8_t value) {
-        if(!first_submit && time != current_time) {
-            sweep_active();
-        }
+        if (!first_submit && time != current_time) { sweep_active(); }
         assert(time >= current_time);
         first_submit = false;
         current_time = time;
-        if(id >= 0) {
-            if(current_value.size() <= id) {
-                current_value.resize(id + 1);
-            }
-            if(!current_value[id].active && current_value[id].value != value) {
+        if (id >= 0) {
+            if (current_value.size() <= id) { current_value.resize(id + 1); }
+            if (!current_value[id].active && current_value[id].value != value) {
                 current_value[id].active = true;
                 active_id.push_back(id);
             }
@@ -151,16 +147,16 @@ struct InMemDumper {
     }
 };
 
-} // namespace
+}  // namespace
 
 static bool initialize = true;
 static std::unique_ptr<InMemDumper> dumper;
 
 extern "C" void submit_cov_s(int point_id, uint8_t value, const char*) {
     uint64_t time = Verilated::threadContextp()->time();
-    if(initialize) {
+    if (initialize) {
         auto arg = getenv("DUMP");
-        if(arg) {
+        if (arg) {
             std::cerr << "Dump prefix: " << arg << std::endl;
             dumper = std::make_unique<InMemDumper>(arg);
         }

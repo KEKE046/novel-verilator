@@ -64,7 +64,7 @@ struct CVPTInfo {
     std::string type;
 };
 
-static int get_arg(const std::string & arg) {
+static int get_arg(const std::string& arg) {
     auto* env = getenv(arg.c_str());
     if (!env) return 0;
     auto value = std::string(env);
@@ -112,15 +112,13 @@ class MatchVisitor final : public VNVisitor {
         stmt_stack.push(nodep);
         // std::cout << "Set user1p " << std::endl;
         ssize_t index = 0;
-        if(!get_arg("NO_HOOK_IF")) {
+        if (!get_arg("NO_HOOK_IF")) {
             current_stmt()->user1p(
                 createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
             m_parent_index.push(index);
         }
         iterateChildren(nodep);
-        if(!get_arg("NO_HOOK_IF")) {
-            m_parent_index.pop();
-        }
+        if (!get_arg("NO_HOOK_IF")) { m_parent_index.pop(); }
         stmt_stack.pop();
     }
     void visit(AstNodeModule* nodep) override {
@@ -130,7 +128,7 @@ class MatchVisitor final : public VNVisitor {
     }
     void visit(AstNodeCond* nodep) override {
         ssize_t index = 0;
-        if(!get_arg("NO_HOOK_COND")) {
+        if (!get_arg("NO_HOOK_COND")) {
             if (current_stmt()) {
                 auto* new_stmt
                     = createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "mux");
@@ -143,9 +141,7 @@ class MatchVisitor final : public VNVisitor {
             m_parent_index.push(index);
         }
         iterateChildren(nodep);
-        if(!get_arg("NO_HOOK_COND")) {
-            m_parent_index.pop();
-        }
+        if (!get_arg("NO_HOOK_COND")) { m_parent_index.pop(); }
     }
     void visit(AstNode* nodep) override { iterateChildren(nodep); }
 
