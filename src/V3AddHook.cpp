@@ -103,6 +103,16 @@ class MatchVisitor final : public VNVisitor {
         AstStmtExpr* const new_stmt = new AstStmtExpr(flp, new_node);
         return new_stmt;
     }
+    void visit(AstGenFor * nodep) override {
+        stmt_stack.push(nullptr);
+        iterateChildren(nodep);
+        stmt_stack.pop();
+    }
+    void visit(AstGenIf * nodep) override {
+        stmt_stack.push(nullptr);
+        iterateChildren(nodep);
+        stmt_stack.pop();
+    }
     void visit(AstNodeStmt* nodep) override {
         stmt_stack.push(nodep);
         iterateChildren(nodep);
