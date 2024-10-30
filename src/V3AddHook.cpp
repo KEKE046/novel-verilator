@@ -14,49 +14,6 @@ VL_DEFINE_DEBUG_FUNCTIONS;
 
 namespace {
 
-// struct AddTaskVisitor final : public VNVisitor {
-//     bool found = false;
-//     static AstTask * creatTask(FileLine * flp) {
-//         AstVar * const arg1 = new AstVar(flp, VVarType::PORT, "id", VFlagChildDType(), new
-//         AstBasicDType(flp, VBasicDTypeKwd::INT)); AstVar * const arg2 = new AstVar(flp,
-//         VVarType::PORT, "value", VFlagChildDType(), new AstBasicDType(flp,
-//         VBasicDTypeKwd::BIT)); AstVar * const arg3 = new AstVar(flp, VVarType::PORT, "name",
-//         VFlagChildDType(), new AstBasicDType(flp, VBasicDTypeKwd::STRING)); arg1->addNext(arg2);
-//         arg1->addNext(arg3);
-//         arg1->direction(VDirection::INPUT);
-//         arg2->direction(VDirection::INPUT);
-//         arg3->direction(VDirection::INPUT);
-//         AstTask * const res =  new AstTask(flp, "submit_cov_s", arg1);
-//         res->dpiImport(true);
-//         res->prototype(true);
-//         return res;
-//     }
-//     void visit(AstPackage * nodep) override {
-//         if(nodep->name() == "$unit") {
-//             found = true;
-//             auto * task = creatTask(nodep->fileline());
-//             nodep->addStmtsp(task);
-//         }
-//         iterateChildren(nodep);
-//     }
-//     void visit(AstNode * nodep) override {
-//         iterateChildren(nodep);
-//     }
-// public:
-//     explicit AddTaskVisitor(AstNetlist* nodep) {
-//         iterate(nodep);
-//         if(!found) {
-//             auto * modp = nodep->modulesp();
-//             auto * unit = new AstPackage(nodep->fileline(), "$unit");
-//             auto * task = creatTask(nodep->fileline());
-//             modp->addNextHere(unit);
-//             unit->addStmtsp(task);
-//             unit->inLibrary(true);
-//         }
-//     }
-//     ~AddTaskVisitor() override = default;
-// };
-
 struct CVPTInfo {
     // -1 means top level
     ssize_t parent_index;
@@ -73,6 +30,7 @@ static int get_arg(const std::string& arg) {
         return std::stoi(value);
     } catch (std::invalid_argument& e) { return -1; }
 }
+
 class MatchVisitor final : public VNVisitor {
     const VNUser1InUse m_inuser1;
     std::vector<CVPTInfo> m_cvpt_info;
@@ -176,6 +134,16 @@ class RewriteVisitor final : public VNVisitor {
         inside_proc = false;
     }
     void visit(AstInitial* nodep) override {
+        inside_proc = true;
+        iterateChildren(nodep);
+        inside_proc = false;
+    }
+    void visit(AstTask * nodep) override {
+        inside_proc = true;
+        iterateChildren(nodep);
+        inside_proc= false;
+    }
+    void visit(AstFunc * nodep) override {
         inside_proc = true;
         iterateChildren(nodep);
         inside_proc = false;
