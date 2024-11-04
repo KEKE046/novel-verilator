@@ -639,8 +639,12 @@ public:
             puts(cvtToStr(nodep->declp()->dataDeclThisp()->binNum()));
             puts("].fetch_add(1, std::memory_order_relaxed);\n");
         } else {
-            putns(nodep, "++(vlSymsp->__Vcoverage[");
-            puts(cvtToStr(nodep->declp()->dataDeclThisp()->binNum()));
+            auto id = cvtToStr(nodep->declp()->dataDeclThisp()->binNum());
+            putns(nodep, "submit_cov_toggle(");
+            puts(id);
+            puts(");\n");
+            puts("++(vlSymsp->__Vcoverage[");
+            puts(id);
             puts("]);\n");
         }
     }

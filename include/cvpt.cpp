@@ -2,8 +2,12 @@
 
 #include <iomanip>
 #include <iostream>
+#include <limits>
+#include <memory>
 
 namespace {
+
+static size_t toggle_N = 32;
 
 struct CovInfo {
     bool active = false;
@@ -92,7 +96,7 @@ struct InMemDumper {
         if (current_time != last_time) { sweep_active(); }
         sweep_last();
         std::cerr << "DUMP: times=" << times.size() << " indptr=" << indptr.size()
-                  << " indices=" << indices.size() << " data=" << data.size() << std::endl;
+                  << " indices=" << indices.size() << " data=" << data.size() << " toggle_n=" << toggle_N << std::endl;
         fwrite(times.data(), sizeof(*times.data()), times.size(), fp_time);
         fwrite(indptr.data(), sizeof(*indptr.data()), indptr.size(), fp_indptr);
         fwrite(indices.data(), sizeof(*indices.data()), indices.size(), fp_indices);
@@ -147,20 +151,71 @@ struct InMemDumper {
     }
 };
 
+struct ToggleInfo {
+    std::vector<uint64_t> buf = {};
+    void submit(uint64_t time) {
+        if(buf.size() < toggle_N) {
+            buf.push_back(time);
+        }
+    }
+    void legalize() {
+        buf.resize(toggle_N, std::numeric_limits<uint64_t>::max());
+    }
+};
+
+struct ToggleDumper {
+    FILE * fdump;
+    std::vector<ToggleInfo> buf;
+    ToggleDumper(std::string name) {
+        fdump = fopen((name + ".toggle.bin").c_str(), "wb");
+    }
+    ~ToggleDumper() {
+        for(size_t i = 0; i < buf.size(); i++) {
+            buf[i].legalize();
+            fwrite(buf[i].buf.data(), sizeof(uint64_t), buf[i].buf.size(), fdump);
+        }
+        fclose(fdump);
+    }
+    void submit(int point_id, uint64_t time) {
+        if(point_id >= buf.size()) {
+            buf.resize(point_id + 1);
+        }
+        buf[point_id].submit(time);
+    }
+};
+
 }  // namespace
 
 static bool initialize = true;
 static std::unique_ptr<InMemDumper> dumper;
+static std::unique_ptr<ToggleDumper> toggle;
+
+static void initialize_all() {
+    const auto * arg = getenv("DUMP");
+    const auto * tgn = getenv("TOGGLE_N");
+    if(tgn) {
+        toggle_N = atoi(tgn);
+    }
+    if (arg) {
+        std::cerr << "Dump prefix: " << arg << std::endl;
+        dumper = std::make_unique<InMemDumper>(arg);
+        toggle = std::make_unique<ToggleDumper>(arg);
+    }
+    initialize = false;
+}
 
 extern "C" void submit_cov_s(int point_id, uint8_t value, const char*) {
     uint64_t time = Verilated::threadContextp()->time();
     if (initialize) {
-        auto arg = getenv("DUMP");
-        if (arg) {
-            std::cerr << "Dump prefix: " << arg << std::endl;
-            dumper = std::make_unique<InMemDumper>(arg);
-        }
-        initialize = false;
+        initialize_all();
     }
     if (dumper) { dumper->submit(time, point_id, value + 1); }
+}
+
+void submit_cov_toggle(int point_id) {
+    uint64_t time = Verilated::threadContextp()->time();
+    if (initialize) {
+        initialize_all();
+    }
+    if (toggle) { toggle->submit(point_id, time); }
 }

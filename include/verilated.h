@@ -76,6 +76,8 @@
 
 using namespace std::literals;  // "<std::string literal>"s; see SF.7 core guideline
 
+void submit_cov_toggle(int point_id);
+
 //=============================================================================
 // Switches
 
