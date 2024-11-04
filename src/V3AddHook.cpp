@@ -10,6 +10,7 @@
 
 #include <fstream>
 #include <stack>
+#include <unordered_set>
 VL_DEFINE_DEBUG_FUNCTIONS;
 
 namespace {
@@ -30,6 +31,43 @@ static int get_arg(const std::string& arg) {
         return std::stoi(value);
     } catch (std::invalid_argument& e) { return -1; }
 }
+
+static std::vector<std::string> split_s(const std::string& str, char delimiter) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(str);
+    std::string token;
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+static std::unordered_set<std::string> get_filter_set() {
+    const char * cond = getenv("FILTER_COND");
+    if(!cond) return {};
+    std::unordered_set<std::string> result;
+    for(auto token: split_s(std::string(cond), ',')) {
+        result.insert(token);
+    }
+    return result;
+}
+
+class FilterVisitor final : public VNVisitor {
+    void visit(AstParseRef * nodep) {
+        auto name = nodep->name();
+        if(!filter_set.count(name)) {
+            // std::cout << name << " is not filtered, accept" << std::endl;
+            ok = true;
+        }
+    }
+    void visit(AstNode* nodep) override { iterateChildren(nodep); }
+    const std::unordered_set<std::string> &filter_set;
+public:
+    bool ok = false;
+    FilterVisitor(std::unordered_set<std::string> & filter_set, AstNode * p): filter_set(filter_set){
+        visit(p);
+    }
+};
 
 class MatchVisitor final : public VNVisitor {
     const VNUser1InUse m_inuser1;
@@ -76,17 +114,30 @@ class MatchVisitor final : public VNVisitor {
         iterateChildren(nodep);
         stmt_stack.pop();
     }
+    std::unordered_set<std::string> filter_set;
+    bool check_if(AstIf * nodep) {
+        auto * condp = nodep->condp();
+        if(FilterVisitor(filter_set, condp).ok) {
+            return true;
+        } else {
+            return false;
+        }
+    }
     void visit(AstIf* nodep) override {
         stmt_stack.push(nodep);
         // std::cout << "Set user1p " << std::endl;
         ssize_t index = 0;
+        bool hook_if = false;
         if (!get_arg("NO_HOOK_IF")) {
-            current_stmt()->user1p(
-                createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
-            m_parent_index.push(index);
+            if(check_if(nodep)) {
+                hook_if = true;
+                current_stmt()->user1p(
+                    createCoveragePointStmt(nodep->fileline(), nodep->condp(), index, "if"));
+                m_parent_index.push(index);
+            }
         }
         iterateChildren(nodep);
-        if (!get_arg("NO_HOOK_IF")) { m_parent_index.pop(); }
+        if (hook_if) { m_parent_index.pop(); }
         stmt_stack.pop();
     }
     void visit(AstNodeModule* nodep) override {
@@ -114,7 +165,10 @@ class MatchVisitor final : public VNVisitor {
     void visit(AstNode* nodep) override { iterateChildren(nodep); }
 
 public:
-    explicit MatchVisitor(AstNetlist* nodep) { iterate(nodep); }
+    explicit MatchVisitor(AstNetlist* nodep) {
+        filter_set = get_filter_set();
+        iterate(nodep);
+    }
     ~MatchVisitor() override = default;
     void dump_csv(std::ostream& out) {
         size_t index = 0;
