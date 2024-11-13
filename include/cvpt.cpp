@@ -151,6 +151,104 @@ struct InMemDumper {
     }
 };
 
+struct CovStat {
+    uint8_t last_value = 3;
+    int64_t total_flip = 0;
+    int64_t total_pos = 0;
+    int64_t total_neg = 0;
+    void reset() {
+        total_flip = 0;
+        total_pos = 0;
+        total_neg = 0;
+    }
+    void update(uint8_t value) {
+        if(value) total_pos++;
+        else total_neg++;
+        if(last_value != value) total_flip++;
+        last_value = value;
+    }
+};
+
+struct AggDenseDumper {
+    FILE* fp_value;
+    FILE* fp_flip;
+    FILE* fp_time;
+    FILE* fp_pos;
+    FILE* fp_neg;
+    int64_t dump_interval;
+    AggDenseDumper(std::string prefix, int64_t dump_interval) {
+        fp_time = fopen((prefix + ".time.bin").c_str(), "wb");
+        fp_value = fopen((prefix + ".value.bin").c_str(), "wb");
+        fp_flip = fopen((prefix + ".flip.bin").c_str(), "wb");
+        fp_pos = fopen((prefix + ".pos.bin").c_str(), "wb");
+        fp_neg = fopen((prefix + ".neg.bin").c_str(), "wb");
+        this->dump_interval = dump_interval;
+    }
+    ~AggDenseDumper() {
+        if(current_time != last_sweep) {
+            sweep_all();
+        }
+        save_all();
+    }
+    std::vector<CovStat> covs;
+    std::vector<uint64_t> times;
+    std::vector<std::vector<CovStat>> dumps;
+    void save_all() {
+        if(dumps.empty()) return;
+        size_t maxl = 0;
+        for(const auto & cvs: dumps) {
+            maxl = std::max(maxl, cvs.size());
+        }
+        for(auto & cvs: dumps) {
+            cvs.resize(maxl);
+            for(const auto & d: cvs) {
+#define SAVE(x, y) fwrite(&(x), sizeof(x), 1, y)
+                SAVE(d.last_value, fp_value);
+                SAVE(d.total_flip, fp_flip);
+                SAVE(d.total_pos, fp_pos);
+                SAVE(d.total_neg, fp_neg);
+#undef SAVE
+            }
+            cvs.clear();
+        }
+        fwrite(times.data(), sizeof(*times.data()), times.size(), fp_time);
+        fclose(fp_time);
+        fclose(fp_value);
+        fclose(fp_flip);
+        fclose(fp_pos);
+        fclose(fp_neg);
+    }
+    uint64_t last_sweep = 0;
+    void sweep_all() {
+        last_sweep = current_time;
+        times.push_back(current_time);
+        std::cerr << "DUMP: times=" << current_time << " covs=" << covs.size() << " dumps=" << dumps.size() << " toggle_n=" << toggle_N << std::endl;
+        dumps.push_back(covs);
+        for(auto & c: covs) c.reset();
+    }
+    bool first_submit = true;
+    uint64_t current_time = 0;
+    uint64_t interval_counter = 0;
+    void sweep_active() {
+        if(++interval_counter >= dump_interval) {
+            sweep_all();
+            interval_counter = 0;
+        }
+    }
+    void submit(uint64_t time, int64_t id, uint8_t value) {
+        if (!first_submit && time != current_time) {
+            current_time = time;
+            sweep_active();
+        }
+        first_submit = false;
+        current_time = time;
+        if(id >= 0) {
+            if (covs.size() <= id) { covs.resize(id + 1); }
+            covs[id].update(value);
+        }
+    }
+};
+
 struct ToggleInfo {
     std::vector<uint64_t> buf = {};
     void submit(uint64_t time) {
@@ -187,7 +285,7 @@ struct ToggleDumper {
 }  // namespace
 
 static bool initialize = true;
-static std::unique_ptr<InMemDumper> dumper;
+static std::unique_ptr<AggDenseDumper> dumper;
 static std::unique_ptr<ToggleDumper> toggle;
 
 static void initialize_all() {
@@ -196,9 +294,12 @@ static void initialize_all() {
     if(tgn) {
         toggle_N = atoi(tgn);
     }
+    const auto * interval_s = getenv("DUMP_INTERVAL");
+    uint64_t interval = 10000;
+    if(interval_s) interval = atoi(interval_s);
     if (arg) {
-        std::cerr << "Dump prefix: " << arg << std::endl;
-        dumper = std::make_unique<InMemDumper>(arg);
+        std::cerr << "dump= " << arg << " interval=" << interval << std::endl;
+        dumper = std::make_unique<AggDenseDumper>(arg, interval);
         toggle = std::make_unique<ToggleDumper>(arg);
     }
     initialize = false;
@@ -209,7 +310,7 @@ extern "C" void submit_cov_s(int point_id, uint8_t value, const char*) {
     if (initialize) {
         initialize_all();
     }
-    if (dumper) { dumper->submit(time, point_id, value + 1); }
+    if (dumper) { dumper->submit(time, point_id, value); }
 }
 
 void submit_cov_toggle(int point_id) {
